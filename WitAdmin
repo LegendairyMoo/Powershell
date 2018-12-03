@@ -1,0 +1,97 @@
+### Ever get annoyed at having to type in the same collection and project information again and again when working with your TFS server?
+### This module allows you to place that information inside of a single file so that you can then call out to your 
+### TFS server to perform a command without having to type it in every time.
+###
+### To use this module, follow these steps
+###   1. Set the variable values at the top of the file to match your environment
+###   2. Import the module to your powershell session by typing
+###        Import-Module .\WitAdmin.ps1 -Force
+###   3. From a powershell prompt type WA- to see the list of calls that can be made
+
+### NOTE : Currently have to import the file every time you want to use it.  
+###       Will need to convert it over to a proper module format to avoid the need for that in the future.
+
+$WITAdminPath = ''
+$TFSServerUrl = ""
+$TFSProject = ""
+$WorkingFolder=Convert-Path ..
+
+
+function WA-WorkItemList
+{
+    WA-WitAdmin -Command "listwitd"       
+}
+
+function WA-ExportWorkItem
+{
+    param ( 
+        [string] $WorkItemName,  
+        [string] $ExportFileName = (' {0}\{1}.xml' -f $WorkingFolder, $WorkItemName)
+    )
+
+   $AdditionalArguments = ' /n:"{0}" /f:"{1}" ' -f $WorkItemName, $ExportFileName
+
+   WA-WitAdmin -Command "exportwitd" -AdditionalArguments $AdditionalArguments
+
+}
+
+function WA-ImportWorkItem
+{
+    param ( 
+          [string] $ImportFileName = (' {0}\{1}.xml' -f $WorkingFolder, $WorkItemName)
+    ) 
+     
+   $AdditionalArguments = ' /f:"{0}\{1}" ' -f $ExportLocation, $ImportFileName
+
+   WA-WitAdmin -Command "exportwitd" -AdditionalArguments $AdditionalArguments
+
+}
+
+function WA-WitAdmin
+{
+
+  param 
+    ( 
+        [string] $Command,
+        [string] $Collection = $TFSServerUrl, 
+        [string] $Project = $TFSProject,
+        [string] $AdditionalArguments 
+    )
+    
+        $pinfo = New-Object System.Diagnostics.ProcessStartInfo
+
+        $pinfo.FileName = $WITAdminPath
+        $pinfo.RedirectStandardError = $true
+        $pinfo.RedirectStandardOutput = $true
+        $pinfo.UseShellExecute = $false
+        $pinfo.CreateNoWindow = $true
+
+
+        $pinfo.Arguments = '{0} /collection:"{1}" /p:"{2}" {3} ' -f $Command, $TFSServerUrl, $TFSProject, $AdditionalArguments
+
+        Write-Host ('Executing shell command: WitAdmin.exe {0}' -f  $pinfo.Arguments)
+
+        $p = New-Object System.Diagnostics.Process
+        $p.StartInfo = $pinfo
+        $p.Start() | Out-Null
+        $p.WaitForExit()
+
+        $stdout = $p.StandardOutput.ReadToEnd()
+        $stderr = $p.StandardError.ReadToEnd()
+
+        if ($stdout) 
+        {
+            Write-Host $stdout
+        }
+
+        if ($stderr) 
+        {
+            Write-Host $stderr
+        }
+
+        if ($p.ExitCode -ne 0) 
+        {
+            Write-Host $p.ExitCode
+        }
+        
+}
